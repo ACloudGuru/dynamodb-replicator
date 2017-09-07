@@ -127,7 +127,7 @@ function incrementalBackup(event, context, callback) {
     var params = {
         maxRetries: 1000,
         httpOptions: {
-            timeout: 1000,
+            timeout: 60000,
             agent: module.exports.agent
         }
     };
