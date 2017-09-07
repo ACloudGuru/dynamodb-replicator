@@ -225,7 +225,7 @@ function incrementalBackup(event, context, callback) {
     }
 
     function _sortKeysObj(keys) {
-        return Object.keys(keys).sort().reduce((pre, cur) => {
+        return Object.keys(keys).sort().reduce(function(pre, cur) {
             pre[cur] = keys[cur];
             return pre;
         }, {});
