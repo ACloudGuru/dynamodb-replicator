@@ -48,7 +48,7 @@ function backfill(config, done) {
             if (writer.pending > 1000)
                 return setImmediate(writer._write.bind(writer), record, enc, callback);
 
-            var key = keys.reduce(function(key, k) {
+            var key = keys.sort().reduce(function(key, k) {
                 key[k] = record[k];
                 return key;
             }, {});
