@@ -37,9 +37,12 @@ module.exports = function(config, done) {
     var gzip = zlib.createGzip()
         .on('error', function(err) { done(err); });
 
+    var got = 0;
     var stringify = new stream.Transform();
     stringify._writableState.objectMode = true;
     stringify._transform = function(data, enc, callback) {
+        got++;
+        if(got % 1000 === 0) log('Got %s objects', got);
         if (!data) return callback();
         callback(null, data.Body.toString() + '\n');
     };
