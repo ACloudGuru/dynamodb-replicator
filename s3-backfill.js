@@ -14,6 +14,8 @@ module.exports.agent = new https.Agent({
 });
 
 function backfill(config, done) {
+    config = Object.assign({override: false}, config);
+
     var s3 = new AWS.S3({
         maxRetries: 1000,
         httpOptions: {
@@ -36,6 +38,7 @@ function backfill(config, done) {
         });
 
         var count = 0;
+        var skipped = 0;
         var starttime = Date.now();
 
         var writer = new stream.Writable({ objectMode: true, highWaterMark: 1000 });
@@ -57,22 +60,52 @@ function backfill(config, done) {
                 .update(Dyno.serialize(key))
                 .digest('hex');
 
-            var params = {
-                Bucket: config.backup.bucket,
-                Key: [config.backup.prefix, config.table, id].join('/'),
-                Body: Dyno.serialize(record)
-            };
+            var bucket = config.backup.bucket;
+            var bucketKey = [config.backup.prefix, config.table, id].join('/');
 
             writer.drained = false;
             writer.pending++;
             writer.queue.defer(function(next) {
-                s3.putObject(params, function(err) {
-                    count++;
-                    process.stdout.write('\r\033[K' + count + ' - ' + (count / ((Date.now() - starttime) / 1000)).toFixed(2) + '/s');
-                    writer.pending--;
-                    if (err) writer.emit('error', err);
-                    next();
-                });
+               
+                function isBackupMissing() {
+                    var getParams = {
+                        Bucket: bucket,
+                        Key: bucketKey
+                    };
+                    return s3.getObject(getParams).promise().then(
+                        function(data) {
+                            return !data;
+                        },
+                        function(err) {
+                            if (err.statusCode === 404) return true;
+                            throw err;
+                        }
+                    );
+                }
+                
+                var determineBackupPermitted = config.override ? Promise.resolve(true) : isBackupMissing();
+
+                determineBackupPermitted
+                    .then(function(permitted) {
+                        if (permitted) {
+                            return s3.putObject({
+                                Bucket: bucket,
+                                Key: bucketKey,
+                                Body: Dyno.serialize(record)
+                            }).promise();
+                        } else {
+                            skipped++;
+                        }
+                    })
+                    .catch(function(err) {
+                        writer.emit('error', err);
+                    })
+                    .then(function() {
+                        count++;
+                        process.stdout.write('\r\033[K Total: ' + count + ', Skipped: ' + skipped + ' - ' + (count / ((Date.now() - starttime) / 1000)).toFixed(2) + '/s');
+                        writer.pending--;
+                        next();
+                    });
             });
             callback();
         };
@@ -86,7 +119,7 @@ function backfill(config, done) {
 
         primary.scanStream()
             .on('error', next)
-          .pipe(writer)
+            .pipe(writer)
             .on('error', next)
             .on('finish', next);
 

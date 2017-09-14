@@ -43,6 +43,10 @@ var config = {
     }
 };
 
+if (Object.keys(args).indexOf('override') > -1) {
+    config.override = true;
+}
+
 backfill(config, function(err) {
     if (err) {
         console.error(err);
