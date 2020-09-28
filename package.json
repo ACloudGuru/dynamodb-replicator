@@ -43,7 +43,7 @@
   },
   "devDependencies": {
     "dynamodb-test": "^0.2.0",
-    "eslint": "^1.5.0",
+    "eslint": "^7.10.0",
     "tape": "^4.0.0"
   }
 }
